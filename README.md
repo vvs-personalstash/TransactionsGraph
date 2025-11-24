@@ -20,25 +20,111 @@ A web application for managing users and transactions with Neo4j graph relations
 
 - **Database**: Neo4j graph database.
 
-## Quick Start
+## Quick Start with Docker Compose (Recommended)
 
 ### Prerequisites
 
 - Docker & Docker Compose
 
+### Steps
+
+1. **Clone the repository**
+
+   ```bash
+   git clone <repository-url>
+   cd TxGraph
+   ```
+
+2. **Create environment file**
+
+   Copy the example environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Or create a `.env` file in the root directory with:
+
+   ```env
+   NEO4J_URI=bolt://neo4j:7687
+   NEO4J_USER=neo4j
+   NEO4J_PASS=password123
+   SEED_DATA=true
+   PORT=8080
+   ```
+
+3. **Start all services**
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+4. **Verify services are running**
+
+   ```bash
+   docker compose ps
+   ```
+
+   All three services (`neo4j`, `backend`, `frontend`) should show as **Up**.
+
+5. **Access the application**
+
+   - **Frontend UI:** [http://localhost:3000](http://localhost:3000)
+   - **Backend API:** [http://localhost:8080/api/users](http://localhost:8080/api/users)
+   - **Neo4j Browser:** [http://localhost:7474](http://localhost:7474) (login: `neo4j`/`password123`)
+
+6. **View logs (optional)**
+
+   ```bash
+   docker compose logs -f backend
+   docker compose logs -f frontend
+   docker compose logs -f neo4j
+   ```
+
+7. **Stop all services**
+
+   ```bash
+   docker compose down
+   ```
+
+   To also remove data volumes:
+
+   ```bash
+   docker compose down -v
+   ```
+
+## Local Development Setup (Without Docker)
+
+### Prerequisites
+
 - Python 3.11+
+- Node.js 18+
+- Neo4j 5.x+ (running locally or via Docker)
 
-- Node.js 16+
+### 1. Start Neo4j Database
 
-- Neo4j Aura or local Neo4j 4.x+ instance
+Using Docker:
 
-### Environment Variables
-
-Create a `.env` file in the `user-tx-backend/` directory:
-
-### For local setup
-
+```bash
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 \
+  -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password123 \
+  -v neo4j-data:/data \
+  neo4j:5.7.0
 ```
+
+### 2. Setup Backend
+
+```bash
+cd Backend
+pip install -r requirements.txt
+```
+
+Create a `.env` file in the `Backend` directory (or use environment variables):
+
+```env
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASS=password123
@@ -46,52 +132,23 @@ SEED_DATA=true
 PORT=8080
 ```
 
-### For Docker setup
-
-```
-NEO4J_URI=bolt://neo4j:7687
-NEO4J_USER=neo4j
-NEO4J_PASS=your_password
-SEED_DATA=true
-PORT=8080
-```
-
-## Local Setup
-
-### Backend
+Run the backend:
 
 ```bash
-cd user-tx-backend
-pip install -r requirements.txt
-
-# run the application
 python app.py
 ```
 
-### Database
+The API will be available at [http://localhost:8080](http://localhost:8080)
 
-#### Neo4j
-
-```
-docker run -d \
-  --name neo4j \
-  --network user-tx-net \
-  -p7474:7474 \
-  -p7687:7687 \
-  -e NEO4J_AUTH=neo4j/password123 \
-  -v neo4j-data:/data \
-  neo4j:5.7.0
-```
-
-### Frontend
+### 3. Setup Frontend
 
 ```bash
-cd frontend
+cd Frontend
 npm install
-npm start
+npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000/) in your browser.
+The frontend will be available at [http://localhost:5173](http://localhost:5173) (Vite dev server)
 
 ---
 
