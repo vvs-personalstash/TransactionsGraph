@@ -10,6 +10,13 @@ const NAV_ITEMS = [
   { label: 'Export JSON/CSV',       to: '/export' },
 ]
 
+const getNavLinkClassName = ({ isActive }) =>
+  `px-4 py-2 rounded-lg text-sm font-medium border ${
+    isActive
+      ? 'bg-emerald-500 text-white border-emerald-500'
+      : 'text-slate-300 border-slate-700 hover:bg-slate-800 hover:border-slate-600'
+  }`
+
 export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-900">
@@ -26,13 +33,7 @@ export default function App() {
                 key={to}
                 to={to}
                 end={to === '/'}
-                className={({ isActive }) =>
-                  `px-4 py-2 rounded-lg text-sm font-medium border ${
-                    isActive
-                      ? 'bg-emerald-500 text-white border-emerald-500'
-                      : 'text-slate-300 border-slate-700 hover:bg-slate-800 hover:border-slate-600'
-                  }`
-                }
+                className={getNavLinkClassName}
               >
                 {label}
               </NavLink>

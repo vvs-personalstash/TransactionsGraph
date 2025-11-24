@@ -88,7 +88,7 @@ export default function GraphView() {
       });
       setCy(instance);
     }
-  }, [cyRef, cy]);
+  }, [cy]);
 
   useEffect(() => {
     axios.get("/api/users").then((res) => setUsers(res.data));

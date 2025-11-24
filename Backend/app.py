@@ -86,8 +86,25 @@ def create_user():
 @app.route('/api/users', methods=['GET'])
 def get_all_users():
     try:
-        users = db.get_all_users()
-        return jsonify([to_dict(u) for u in users]), 200
+        # Check if pagination parameters are provided
+        page = request.args.get('page', type=int)
+        page_size = request.args.get('pageSize', type=int)
+        search_query = request.args.get('search', default='', type=str)
+
+        if page and page_size:
+            # Return paginated response
+            result = db.get_users_paginated(page, page_size, search_query)
+            return jsonify({
+                "data": [to_dict(u) for u in result["data"]],
+                "total": result["total"],
+                "page": result["page"],
+                "pageSize": result["pageSize"],
+                "totalPages": result["totalPages"]
+            }), 200
+        else:
+            # Return all users (backward compatibility)
+            users = db.get_all_users()
+            return jsonify([to_dict(u) for u in users]), 200
     except Exception as e:
         return jsonify({"error": "fetch users failed"}), 500
 
@@ -121,10 +138,48 @@ def create_transaction():
 @app.route('/api/transactions', methods=['GET'])
 def get_all_transactions():
     try:
-        transactions = db.get_all_transactions()
-        return jsonify([to_dict(t) for t in transactions]), 200
+        # Check if pagination parameters are provided
+        page = request.args.get('page', type=int)
+        page_size = request.args.get('pageSize', type=int)
+
+        if page and page_size:
+            # Get filter parameters
+            min_amount = request.args.get('minAmount', type=float)
+            max_amount = request.args.get('maxAmount', type=float)
+            currency = request.args.get('currency', type=str)
+            start_date = request.args.get('startDate', type=str)
+            end_date = request.args.get('endDate', type=str)
+            description_query = request.args.get('description', type=str)
+            device_query = request.args.get('deviceId', type=str)
+
+            # Return paginated and filtered response
+            result = db.get_transactions_paginated(
+                page, page_size,
+                min_amount, max_amount, currency,
+                start_date, end_date, description_query, device_query
+            )
+            return jsonify({
+                "data": [to_dict(t) for t in result["data"]],
+                "total": result["total"],
+                "page": result["page"],
+                "pageSize": result["pageSize"],
+                "totalPages": result["totalPages"]
+            }), 200
+        else:
+            # Return all transactions (backward compatibility)
+            transactions = db.get_all_transactions()
+            return jsonify([to_dict(t) for t in transactions]), 200
     except Exception as e:
         return jsonify({"error": "fetch transactions failed"}), 500
+
+
+@app.route('/api/transactions/currencies', methods=['GET'])
+def get_currencies():
+    try:
+        currencies = db.get_all_currencies()
+        return jsonify(currencies), 200
+    except Exception as e:
+        return jsonify({"error": "fetch currencies failed"}), 500
 
 
 # ===== RELATIONSHIP ROUTES =====

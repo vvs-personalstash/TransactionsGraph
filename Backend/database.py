@@ -64,7 +64,7 @@ class Neo4jDriver:
         with self.driver.session() as session:
             result = session.execute_read(self._get_all_users_tx)
             return result
-    
+
     @staticmethod
     def _get_all_users_tx(tx):
         query = """
@@ -81,6 +81,61 @@ class Neo4jDriver:
                 phone=record["phone"]
             ))
         return users
+
+    def get_users_paginated(self, page: int, page_size: int, search_query: str = "") -> dict:
+        with self.driver.session() as session:
+            return session.execute_read(self._get_users_paginated_tx, page, page_size, search_query)
+
+    @staticmethod
+    def _get_users_paginated_tx(tx, page: int, page_size: int, search_query: str):
+        # Calculate skip
+        skip = (page - 1) * page_size
+
+        # Build WHERE clause for search
+        where_clause = ""
+        params = {"skip": skip, "limit": page_size}
+
+        if search_query:
+            search_lower = search_query.lower()
+            where_clause = """
+            WHERE toLower(u.name) CONTAINS $search
+               OR toLower(u.email) CONTAINS $search
+               OR toLower(u.phone) CONTAINS $search
+            """
+            params["search"] = search_lower
+
+        # Get total count
+        count_query = f"MATCH (u:User) {where_clause} RETURN count(u) AS total"
+        count_result = tx.run(count_query, params)
+        total = count_result.single()["total"]
+
+        # Get paginated data
+        data_query = f"""
+        MATCH (u:User)
+        {where_clause}
+        RETURN id(u) AS id, u.name AS name, u.email AS email, u.phone AS phone
+        ORDER BY u.name
+        SKIP $skip
+        LIMIT $limit
+        """
+        result = tx.run(data_query, params)
+
+        users = []
+        for record in result:
+            users.append(User(
+                id=record["id"],
+                name=record["name"],
+                email=record["email"],
+                phone=record["phone"]
+            ))
+
+        return {
+            "data": users,
+            "total": total,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": (total + page_size - 1) // page_size
+        }
     
     def create_transaction(
         self, from_id: int, to_id: int, amount: float,
@@ -169,6 +224,135 @@ class Neo4jDriver:
                 deviceId=record["deviceId"]
             ))
         return transactions
+
+    def get_all_currencies(self) -> List[str]:
+        with self.driver.session() as session:
+            return session.execute_read(self._get_all_currencies_tx)
+
+    @staticmethod
+    def _get_all_currencies_tx(tx):
+        query = """
+        MATCH (t:Transaction)
+        RETURN DISTINCT t.currency AS currency
+        ORDER BY currency
+        """
+        result = tx.run(query)
+        return [record["currency"] for record in result]
+
+    def get_transactions_paginated(
+        self, page: int, page_size: int,
+        min_amount: Optional[float] = None,
+        max_amount: Optional[float] = None,
+        currency: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        description_query: Optional[str] = None,
+        device_query: Optional[str] = None
+    ) -> dict:
+        with self.driver.session() as session:
+            return session.execute_read(
+                self._get_transactions_paginated_tx,
+                page, page_size, min_amount, max_amount, currency,
+                start_date, end_date, description_query, device_query
+            )
+
+    @staticmethod
+    def _get_transactions_paginated_tx(
+        tx, page: int, page_size: int,
+        min_amount: Optional[float],
+        max_amount: Optional[float],
+        currency: Optional[str],
+        start_date: Optional[str],
+        end_date: Optional[str],
+        description_query: Optional[str],
+        device_query: Optional[str]
+    ):
+        # Calculate skip
+        skip = (page - 1) * page_size
+
+        # Build WHERE clauses
+        where_clauses = []
+        params = {"skip": skip, "limit": page_size}
+
+        if min_amount is not None:
+            where_clauses.append("t.amount >= $minAmount")
+            params["minAmount"] = min_amount
+
+        if max_amount is not None:
+            where_clauses.append("t.amount <= $maxAmount")
+            params["maxAmount"] = max_amount
+
+        if currency:
+            where_clauses.append("t.currency = $currency")
+            params["currency"] = currency
+
+        if start_date:
+            where_clauses.append("t.timestamp >= datetime($startDate)")
+            params["startDate"] = start_date
+
+        if end_date:
+            where_clauses.append("t.timestamp <= datetime($endDate)")
+            params["endDate"] = end_date
+
+        if description_query:
+            where_clauses.append("toLower(t.description) CONTAINS $descQuery")
+            params["descQuery"] = description_query.lower()
+
+        if device_query:
+            where_clauses.append("t.deviceId IS NOT NULL AND toLower(t.deviceId) CONTAINS $deviceQuery")
+            params["deviceQuery"] = device_query.lower()
+
+        where_clause = ""
+        if where_clauses:
+            where_clause = "WHERE " + " AND ".join(where_clauses)
+
+        # Get total count
+        count_query = f"""
+        MATCH (u1:User)-[:SENT]->(t:Transaction)-[:RECEIVED_BY]->(u2:User)
+        {where_clause}
+        RETURN count(t) AS total
+        """
+        count_result = tx.run(count_query, params)
+        total = count_result.single()["total"]
+
+        # Get paginated data
+        data_query = f"""
+        MATCH (u1:User)-[:SENT]->(t:Transaction)-[:RECEIVED_BY]->(u2:User)
+        {where_clause}
+        RETURN id(t)           AS id,
+               id(u1)         AS fromId,
+               id(u2)         AS toId,
+               t.amount       AS amt,
+               t.currency     AS currency,
+               toString(t.timestamp) AS ts,
+               t.description  AS desc,
+               t.deviceId     AS deviceId
+        ORDER BY t.timestamp DESC
+        SKIP $skip
+        LIMIT $limit
+        """
+        result = tx.run(data_query, params)
+
+        transactions = []
+        for record in result:
+            transactions.append(Transaction(
+                id=record["id"],
+                fromUserId=record["fromId"],
+                toUserId=record["toId"],
+                amount=record["amt"],
+                currency=record["currency"],
+                timestamp=record["ts"],
+                description=record["desc"],
+                deviceId=record["deviceId"]
+            ))
+
+        return {
+            "data": transactions,
+            "total": total,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": (total + page_size - 1) // page_size
+        }
 
     def get_user_relationships(self, user_id: int) -> Tuple[User, UserConnections]:
         with self.driver.session() as session:

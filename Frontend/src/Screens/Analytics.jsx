@@ -59,7 +59,7 @@ export default function Analytics() {
       })
       setCy(instance)
     }
-  }, [cyRef, cy])
+  }, [cy])
 
   // 2) load user list for the selectors
   useEffect(() => {
