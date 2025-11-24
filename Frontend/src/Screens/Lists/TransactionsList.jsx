@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef, memo, useCallback } from 'react'
 import axios from 'axios'
 
 const TXNS_PER_PAGE = 5
+const DEBOUNCE_DELAY = 300 // ms
 
 const FILTER_FIELDS = [
   { label: 'Amount ≥',    type: 'number', key: 'minAmt',     attrs: { step: '0.01' } },
@@ -27,13 +28,46 @@ const TransactionsList = memo(function TransactionsList() {
   const [descQuery, setDescQuery] = useState('')
   const [deviceQuery, setDeviceQuery] = useState('')
 
+  // Debounced versions of filters
+  const [debouncedMinAmt, setDebouncedMinAmt] = useState('')
+  const [debouncedMaxAmt, setDebouncedMaxAmt] = useState('')
+  const [debouncedCurrency, setDebouncedCurrency] = useState('')
+  const [debouncedStartDate, setDebouncedStartDate] = useState('')
+  const [debouncedEndDate, setDebouncedEndDate] = useState('')
+  const [debouncedDescQuery, setDebouncedDescQuery] = useState('')
+  const [debouncedDeviceQuery, setDebouncedDeviceQuery] = useState('')
+
   const [currencies, setCurrencies] = useState([])
 
   const txnCache = useRef({})
+  const debounceTimer = useRef(null)
+
+  // Debounce all filters
+  useEffect(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedMinAmt(minAmt)
+      setDebouncedMaxAmt(maxAmt)
+      setDebouncedCurrency(currency)
+      setDebouncedStartDate(startDate)
+      setDebouncedEndDate(endDate)
+      setDebouncedDescQuery(descQuery)
+      setDebouncedDeviceQuery(deviceQuery)
+    }, DEBOUNCE_DELAY)
+
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current)
+      }
+    }
+  }, [minAmt, maxAmt, currency, startDate, endDate, descQuery, deviceQuery])
 
   const txnCacheKey = useMemo(() => {
-    return `${txnPage}_${minAmt}_${maxAmt}_${currency}_${startDate}_${endDate}_${descQuery}_${deviceQuery}`
-  }, [txnPage, minAmt, maxAmt, currency, startDate, endDate, descQuery, deviceQuery])
+    return `${txnPage}_${debouncedMinAmt}_${debouncedMaxAmt}_${debouncedCurrency}_${debouncedStartDate}_${debouncedEndDate}_${debouncedDescQuery}_${debouncedDeviceQuery}`
+  }, [txnPage, debouncedMinAmt, debouncedMaxAmt, debouncedCurrency, debouncedStartDate, debouncedEndDate, debouncedDescQuery, debouncedDeviceQuery])
 
   // Fetch currencies on mount
   useEffect(() => {
@@ -57,13 +91,13 @@ const TransactionsList = memo(function TransactionsList() {
       pageSize: TXNS_PER_PAGE
     }
 
-    if (minAmt) params.minAmount = parseFloat(minAmt)
-    if (maxAmt) params.maxAmount = parseFloat(maxAmt)
-    if (currency) params.currency = currency
-    if (startDate) params.startDate = new Date(startDate).toISOString()
-    if (endDate) params.endDate = new Date(endDate).toISOString()
-    if (descQuery) params.description = descQuery
-    if (deviceQuery) params.deviceId = deviceQuery
+    if (debouncedMinAmt) params.minAmount = parseFloat(debouncedMinAmt)
+    if (debouncedMaxAmt) params.maxAmount = parseFloat(debouncedMaxAmt)
+    if (debouncedCurrency) params.currency = debouncedCurrency
+    if (debouncedStartDate) params.startDate = new Date(debouncedStartDate).toISOString()
+    if (debouncedEndDate) params.endDate = new Date(debouncedEndDate).toISOString()
+    if (debouncedDescQuery) params.description = debouncedDescQuery
+    if (debouncedDeviceQuery) params.deviceId = debouncedDeviceQuery
 
     axios.get('/api/transactions', { params })
       .then(res => {
@@ -77,13 +111,13 @@ const TransactionsList = memo(function TransactionsList() {
         setDataVersion(v => v + 1) // Force re-render to show new data
       })
       .catch(err => console.error('Failed to fetch transactions:', err))
-  }, [txnPage, minAmt, maxAmt, currency, startDate, endDate, descQuery, deviceQuery, txnCacheKey])
+  }, [txnPage, debouncedMinAmt, debouncedMaxAmt, debouncedCurrency, debouncedStartDate, debouncedEndDate, debouncedDescQuery, debouncedDeviceQuery, txnCacheKey])
 
-  // Clear cache when filters change
+  // Clear cache when debounced filters change
   useEffect(() => {
     txnCache.current = {}
     setTxnPage(1)
-  }, [minAmt, maxAmt, currency, startDate, endDate, descQuery, deviceQuery])
+  }, [debouncedMinAmt, debouncedMaxAmt, debouncedCurrency, debouncedStartDate, debouncedEndDate, debouncedDescQuery, debouncedDeviceQuery])
 
   const txns = useMemo(() => {
     return txnCache.current[txnCacheKey]?.data || []

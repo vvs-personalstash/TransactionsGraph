@@ -2,19 +2,39 @@ import { useEffect, useState, useMemo, useRef, memo, useCallback } from 'react'
 import axios from 'axios'
 
 const USERS_PER_PAGE = 5
+const DEBOUNCE_DELAY = 300 // ms
 
 const UsersList = memo(function UsersList() {
   const [userQuery, setUserQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [userPage, setUserPage] = useState(1)
   const [userTotal, setUserTotal] = useState(0)
   const [userPageCount, setUserPageCount] = useState(0)
   const [dataVersion, setDataVersion] = useState(0)
 
   const userCache = useRef({})
+  const debounceTimer = useRef(null)
+
+  // Debounce search query
+  useEffect(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedQuery(userQuery)
+    }, DEBOUNCE_DELAY)
+
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current)
+      }
+    }
+  }, [userQuery])
 
   const userCacheKey = useMemo(() => {
-    return `${userPage}_${userQuery}`
-  }, [userPage, userQuery])
+    return `${userPage}_${debouncedQuery}`
+  }, [userPage, debouncedQuery])
 
   // Fetch users with pagination and search
   useEffect(() => {
@@ -29,7 +49,7 @@ const UsersList = memo(function UsersList() {
     const params = {
       page: userPage,
       pageSize: USERS_PER_PAGE,
-      search: userQuery
+      search: debouncedQuery
     }
 
     axios.get('/api/users', { params })
@@ -44,13 +64,13 @@ const UsersList = memo(function UsersList() {
         setDataVersion(v => v + 1) // Force re-render to show new data
       })
       .catch(err => console.error('Failed to fetch users:', err))
-  }, [userPage, userQuery, userCacheKey])
+  }, [userPage, debouncedQuery, userCacheKey])
 
-  // Clear cache when search changes
+  // Clear cache when debounced search changes
   useEffect(() => {
     userCache.current = {}
     setUserPage(1)
-  }, [userQuery])
+  }, [debouncedQuery])
 
   const users = useMemo(() => {
     return userCache.current[userCacheKey]?.data || []
