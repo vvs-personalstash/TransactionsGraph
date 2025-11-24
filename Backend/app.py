@@ -9,7 +9,7 @@ import io
 from database import Neo4jDriver, seed_data
 from models import (
     User, Transaction, UserRelationships, TransactionRelationships,
-    ShortestPathResponse, TransactionClustersResponse
+    ShortestPathResponse, TransactionClustersResponse, Statistics
 )
 
 # Load environment variables
@@ -169,6 +169,15 @@ def get_transaction_clusters():
         clusters = db.cluster_transactions()
         response = TransactionClustersResponse(clusters=clusters)
         return jsonify(to_dict(response)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/analytics/statistics', methods=['GET'])
+def get_statistics():
+    try:
+        stats = db.get_statistics()
+        return jsonify(to_dict(stats)), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

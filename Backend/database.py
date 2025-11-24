@@ -5,14 +5,13 @@ from datetime import datetime
 from models import (
     User, Transaction, UserConnections, TxConnections,
     RelConnection, PathSegment, PathNode, TransactionCluster,
-    GraphNode, GraphRelationship, GraphExportResponse
+    GraphNode, GraphRelationship, GraphExportResponse, Statistics
 )
 
 
 class Neo4jDriver:
     def __init__(self, uri: str, username: str, password: str):
         self.driver = GraphDatabase.driver(uri, auth=(username, password))
-        # Verify connectivity
         self.driver.verify_connectivity()
     
     def close(self):
@@ -20,18 +19,15 @@ class Neo4jDriver:
     
     def create_user(self, name: str, email: str, phone: str) -> int:
         with self.driver.session() as session:
-            # Create user
+            # Create a user
             result = session.execute_write(
                 self._create_user_tx, name, email, phone
             )
-            new_id = result
-            
+            new_id = result          
             # Link shared email
-            session.execute_write(self._link_shared_email, new_id)
-            
+            session.execute_write(self._link_shared_email, new_id)           
             # Link shared phone
-            session.execute_write(self._link_shared_phone, new_id)
-            
+            session.execute_write(self._link_shared_phone, new_id)            
             return new_id
     
     @staticmethod
@@ -475,6 +471,31 @@ class Neo4jDriver:
         """
         result = tx.run(query)
         return [(record[0], record[1]) for record in result]
+
+    def get_statistics(self) -> Statistics:
+        with self.driver.session() as session:
+            stats = session.execute_read(self._get_statistics_tx)
+            return stats
+
+    @staticmethod
+    def _get_statistics_tx(tx) -> Statistics:
+        query = """
+        MATCH (u:User)
+        WITH count(u) AS userCount
+        MATCH (t:Transaction)
+        WITH userCount, count(t) AS transactionCount
+        MATCH ()-[r]->()
+        RETURN userCount, transactionCount, count(r) AS relationshipCount
+        """
+        result = tx.run(query)
+        record = result.single()
+        if record:
+            return Statistics(
+                userCount=record["userCount"],
+                transactionCount=record["transactionCount"],
+                relationshipCount=record["relationshipCount"]
+            )
+        return Statistics(userCount=0, transactionCount=0, relationshipCount=0)
 
     def export_graph(self) -> GraphExportResponse:
         with self.driver.session() as session:

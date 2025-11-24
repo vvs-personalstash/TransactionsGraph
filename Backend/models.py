@@ -103,3 +103,10 @@ class GraphExportResponse:
     nodes: List[GraphNode]
     relationships: List[GraphRelationship]
 
+
+@dataclass
+class Statistics:
+    userCount: int
+    transactionCount: int
+    relationshipCount: int
+

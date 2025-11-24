@@ -1,15 +1,24 @@
-import { Link } from 'react-router-dom'
-
-const FEATURES = [
-  { title: 'Add Data',               to: '/add-data',            color: 'from-emerald-500 to-emerald-600' },
-  { title: 'View Lists',             to: '/lists',               color: 'from-cyan-500 to-cyan-600' },
-  { title: 'Graph View',             to: '/graph',               color: 'from-violet-500 to-violet-600' },
-  { title: 'Shortest Path',          to: '/analytics',           color: 'from-blue-500 to-blue-600' },
-  { title: 'Transaction Clusters',   to: '/transaction-clusters',color: 'from-rose-500 to-rose-600' },
-  { title: 'Export JSON/CSV',        to: '/export',              color: 'from-amber-500 to-amber-600' },
-]
+import { useState, useEffect } from 'react'
+import axios from 'axios'
 
 export default function Home() {
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    axios
+      .get('/api/analytics/statistics')
+      .then(res => {
+        setStats(res.data)
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('Unable to load statistics. Please try again later.')
+        setLoading(false)
+      })
+  }, [])
+
   return (
     <div className="container mx-auto px-6 py-12">
       <div className="text-center mb-12">
@@ -21,48 +30,55 @@ export default function Home() {
         </p>
       </div>
 
-      <section className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-12">
-        {FEATURES.map(({ title, to, color }) => (
-          <Link to={to} key={title}>
-            <div className="h-full flex flex-col justify-between p-6 bg-slate-800 border border-slate-700 rounded-lg hover:border-emerald-500">
-              <div>
-                <h3 className="text-xl font-semibold text-slate-100 mb-2">
-                  {title}
-                </h3>
-                <p className="text-slate-400 text-sm">
-                  {descriptionFor(title)}
-                </p>
-              </div>
-              <span
-                className={`bg-gradient-to-r ${color} inline-block mt-4 px-4 py-2 text-white font-medium rounded-lg text-sm`}
-              >
-                Go
-              </span>
+      {loading && (
+        <div className="text-center text-slate-400 py-12">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+          <p className="mt-4">Loading analytics...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-800 text-red-400 rounded-lg p-6 text-center">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && stats && (
+        <section className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-12">
+          <div className="p-8 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border border-emerald-500/30 rounded-lg hover:border-emerald-500 transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-300">Total Users</h3>
+              <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
             </div>
-          </Link>
-        ))}
-      </section>
+            <p className="text-5xl font-bold text-emerald-400">{stats.userCount}</p>
+            <p className="text-sm text-slate-400 mt-2">Registered users in the system</p>
+          </div>
+
+          <div className="p-8 bg-gradient-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/30 rounded-lg hover:border-cyan-500 transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-300">Total Transactions</h3>
+              <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+            </div>
+            <p className="text-5xl font-bold text-cyan-400">{stats.transactionCount}</p>
+            <p className="text-sm text-slate-400 mt-2">Total transactions recorded</p>
+          </div>
+
+          <div className="p-8 bg-gradient-to-br from-violet-500/10 to-violet-600/10 border border-violet-500/30 rounded-lg hover:border-violet-500 transition-all">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-300">Total Relationships</h3>
+              <svg className="w-8 h-8 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <p className="text-5xl font-bold text-violet-400">{stats.relationshipCount}</p>
+            <p className="text-sm text-slate-400 mt-2">Connections in the graph</p>
+          </div>
+        </section>
+      )}
     </div>
   )
-}
-
-function descriptionFor(title) {
-  switch (title) {
-    case 'Add a User':
-      return 'Quickly register a new user into the graph.'
-    case 'Add a Transaction':
-      return 'Record money movement between users.'
-    case 'View Lists':
-      return 'Browse all users and transactions in a searchable table.'
-    case 'Graph View':
-      return 'See relationships laid out in an interactive network.'
-    case 'Shortest Path':
-      return 'Find connection chains between any two users.'
-    case 'Transaction Clusters':
-      return 'Group transactions by shared users into clusters.'
-    case 'Export JSON/CSV':
-      return 'Download the full graph for offline analysis.'
-    default:
-      return ''
-  }
 }

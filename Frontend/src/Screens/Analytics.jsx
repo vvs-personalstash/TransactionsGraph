@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import cytoscape from 'cytoscape'
 
@@ -92,8 +92,8 @@ export default function Analytics() {
 
       // build node elements (deduplicated)
       const nodeMap = {}
-      segments.forEach(({ from, to }) => {
-        ;[from, to].forEach(n => {
+      segments.forEach(({ from_node, to_node }) => {
+        ;[from_node, to_node].forEach(n => {
           const key = `${n.type[0].toLowerCase()}${n.id}`
           if (!nodeMap[key]) {
             nodeMap[key] = {
@@ -111,9 +111,9 @@ export default function Analytics() {
       const nodeElems = Object.values(nodeMap)
 
       // build edge elements using the real relationship name
-      const edgeElems = segments.map(({ from, to, relationship }, i) => {
-        const src = `${from.type[0].toLowerCase()}${from.id}`
-        const dst = `${to.type[0].toLowerCase()}${to.id}`
+      const edgeElems = segments.map(({ from_node, to_node, relationship }, i) => {
+        const src = `${from_node.type[0].toLowerCase()}${from_node.id}`
+        const dst = `${to_node.type[0].toLowerCase()}${to_node.id}`
         return {
           data: {
             id: `e_${src}_${dst}_${i}`,
