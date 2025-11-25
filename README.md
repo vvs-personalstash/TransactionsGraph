@@ -1,146 +1,127 @@
 # User & Transaction Dashboard
 
-A web application for managing users and transactions with Neo4j graph relationships. Easily register users, record transactions, visualize connections, find shortest paths, cluster related transactions, and export the full graph.
+A Neo4j-powered web application for managing users, transactions, and graph-oriented analytics.
+
+---
 
 ## Features
 
-- **Add a User**: Create new users with name, email, and phone. Shared-email and shared-phone links are auto-generated.
-- **Add a Transaction**: Record payments between users, including amount, currency, timestamp, description, and device ID. Auto-link transactions sharing the same device.
-- **View Lists**: Browse all users and transactions in searchable, filterable tables.
-- **Graph View**: Interactive network visualization of users and their relationships (shared attributes, sent, received).
-- **Shortest Path Analytics**: Compute and display the shortest connection chain between any two users, with edge labels showing relationship types.
-- **Transaction Clusters**: Automatically cluster transactions that share common users, helping identify related activity.
-- **Export JSON/CSV**: Download the entire graph (nodes & relationships) in JSON or CSV formats.
+- Add users with automatic shared-email / shared-phone links
+- Add transactions with automatic sender/receiver edges and shared-device links
+- Paginated + filterable tables for users and transactions --Debounced and Paginated
+- Graph visualization using Cytoscape.js
+- Shortest-path analysis between users
+- Transaction clustering
+- Full graph export as JSON or CSV -- In A Streamed CSV for large Datasets
+
+---
 
 ## Architecture
 
-- **Backend**: Python (Flask) + Neo4j driver, REST API endpoints under `/api/*`.
+- **Backend:** Python (Flask) + Neo4j driver
+- **Frontend:** React + React Router + Tailwind + Cytoscape.js
+- **Database:** Neo4j 5.x
+- **Ingestor (optional):** One-shot bulk-loader for 100k+ synthetic transactions
 
-- **Frontend**: React with React Router, Cytoscape.js for graph visualizations, Tailwind CSS for styling.
+---
 
-- **Database**: Neo4j graph database.
+# Deployment With Docker Compose
 
-## Quick Start with Docker Compose (Recommended)
+## 1. Clone the Repository
 
-### Prerequisites
+```bash
+git clone <repo-url>
+cd TxGraph
+```
 
-- Docker & Docker Compose
+---
 
-### Steps
+## 2. Create `.env`
 
-1. **Clone the repository**
+```env
+NEO4J_URI=bolt://neo4j:7687
+NEO4J_USER=neo4j
+NEO4J_PASS=password123
+PORT=8080
+```
 
-   ```bash
-   git clone <repository-url>
-   cd TxGraph
-   ```
+The ingestor uses the same variables.
 
-2. **Create environment file**
+---
 
-   Copy the example environment file:
+## 3. Start Backend + Frontend + Neo4j
 
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+docker compose up --build -d
+```
 
-   Or create a `.env` file in the root directory with:
+This starts:
 
-   ```env
-   NEO4J_URI=bolt://neo4j:7687
-   NEO4J_USER=neo4j
-   NEO4J_PASS=password123
-   SEED_DATA=true
-   PORT=8080
-   ```
+- `neo4j`
+- `backend`
+- `frontend`
 
-3. **Start all services**
+The database remains empty unless the optional ingestor is run.
 
-   ```bash
-   docker compose up --build -d
-   ```
+---
 
-4. **Verify services are running**
+# Optional: Bulk Populate Neo4j (100k+ Transactions)
 
-   ```bash
-   docker compose ps
-   ```
+A dedicated container `ingestor` performs a one-shot bulk insert using batched `UNWIND` queries.
 
-   All three services (`neo4j`, `backend`, `frontend`) should show as **Up**.
+To run it:
 
-5. **Access the application**
+```bash
+docker compose up -d --build
+docker compose --profile ingest run --rm ingestor
+```
 
-   - **Frontend UI:** [http://localhost:3000](http://localhost:3000)
-   - **Backend API:** [http://localhost:8080/api/users](http://localhost:8080/api/users)
-   - **Neo4j Browser:** [http://localhost:7474](http://localhost:7474) (login: `neo4j`/`password123`)
+Behavior:
 
-6. **View logs (optional)**
+- Loads synthetic users + transactions
+- Writes into the persistent `neo4j-data` volume
+- Exits
+- **Does not run again unless removed**
 
-   ```bash
-   docker compose logs -f backend
-   docker compose logs -f frontend
-   docker compose logs -f neo4j
-   ```
+To force rerun:
 
-7. **Stop all services**
+```bash
+docker compose rm -f ingestor
+docker compose up ingestor
+```
 
-   ```bash
-   docker compose down
-   ```
+---
 
-   To also remove data volumes:
+# Access
 
-   ```bash
-   docker compose down -v
-   ```
+- **UI:** [http://localhost:3000](http://localhost:3000)
+- **API:** [http://localhost:8080](http://localhost:8080)
+- **Neo4j Browser:** [http://localhost:7474](http://localhost:7474)
 
-## Local Development Setup (Without Docker)
+---
 
-### Prerequisites
+# Local Development Without Docker
 
-- Python 3.11+
-- Node.js 18+
-- Neo4j 5.x+ (running locally or via Docker)
-
-### 1. Start Neo4j Database
-
-Using Docker:
+## 1. Start Neo4j
 
 ```bash
 docker run -d \
   --name neo4j \
-  -p 7474:7474 \
-  -p 7687:7687 \
+  -p7474:7474 -p7687:7687 \
   -e NEO4J_AUTH=neo4j/password123 \
   -v neo4j-data:/data \
   neo4j:5.7.0
 ```
 
-### 2. Setup Backend
+## 2. Run Backend
 
 ```bash
 cd Backend
 pip install -r requirements.txt
-```
-
-Create a `.env` file in the `Backend` directory (or use environment variables):
-
-```env
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASS=password123
-SEED_DATA=true
-PORT=8080
-```
-
-Run the backend:
-
-```bash
 python app.py
 ```
 
-The API will be available at [http://localhost:8080](http://localhost:8080)
-
-### 3. Setup Frontend
+## 3. Run Frontend
 
 ```bash
 cd Frontend
@@ -148,111 +129,43 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at [http://localhost:5173](http://localhost:5173) (Vite dev server)
+---
+
+# API Endpoints
+
+```
+POST /api/users
+GET  /api/users
+POST /api/transactions
+GET  /api/transactions
+GET  /api/relationships/user/{id}
+GET  /api/relationships/transaction/{id}
+GET  /api/analytics/shortest-path/users/{from}/{to}
+GET  /api/analytics/transaction-clusters
+GET  /api/export/json
+GET  /api/export/csv
+```
 
 ---
 
-## Running with standalone Docker
+# Stopping Services
 
-We’ll create a Docker network so that containers can talk by name:
-
-`docker network create user-tx-net `
-
-### 1. Neo4j
-
-```
-docker run -d \
-  --name neo4j \
-  --network user-tx-net \
-  -p7474:7474 \
-  -p7687:7687 \
-  -e NEO4J_AUTH=neo4j/password123 \
-  -v neo4j-data:/data \
-  neo4j:5.7.0
+```bash
+docker compose down
 ```
 
-### 2. Python backend
+Remove database:
 
-```
-docker build -t user-tx-backend:latest -f ./user-tx-backend/Dockerfile.python ./user-tx-backend
-docker run -d \
-  --name user-tx-backend \
-  --network user-tx-net \
-  --env-file .env \
-  -p 8080:8080 \
-  user-tx-backend:latest
-```
-
-### 3. React frontend
-
-```
-docker build -t user-tx-frontend:latest ./user-tx-frontend # run docker run -d \
-  --name user-tx-frontend \
-  --network user-tx-net \
-  -p 3000:80 \
-  user-tx-frontend:latest
-```
-
-### 4. Verify
-
-- **Neo4j Browser:** [http://localhost:7474](http://localhost:7474) (login `neo4j`/`password123`)
-- **API:** [http://localhost:8080/api/users](http://localhost:8080/api/users)
-- **UI:** [http://localhost:3000](http://localhost:3000)
-
-## Running with Docker Compose
-
-Compose will wire up the network and order of startup.
-
-```
-# stop & clean volumes
+```bash
 docker compose down -v
-# build images & start all services in background
-docker compose up --build -d
 ```
 
-### 1. Check status
+Remove ingestor:
 
-`docker compose ps`
-
-All three services (`neo4j`, `backend`, `frontend`) should be **Up**.
-
-### 2. Tail logs (optional)
-
-```
-docker compose logs -f neo4j
-docker compose logs -f backend
-docker compose logs -f frontend
+```bash
+docker compose rm -f ingestor
 ```
 
-### 3. Verify in browser
+---
 
-- **Neo4j:** [http://localhost:7474](http://localhost:7474)
-- **API:** [http://localhost:8080/api/users](http://localhost:8080/api/users)
-- **UI:** [http://localhost:3000](http://localhost:3000)
-
-## Stopping
-
-When you’re done, bring everything down and remove the data:
-
-```
-docker compose down -v
-docker network rm user-tx-net
-```
-
-## API Endpoints
-
-```markdown
-|---------------|------------------------------------------------|---------------------------------------|
-| Method | Endpoint | Description |  
-|---------------|------------------------------------------------|---------------------------------------|
-| POST | /api/users | Create a new user |  
-| GET | /api/users | List all users |  
-| POST | /api/transactions | Create a new transaction |  
-| GET | /api/transactions | List all transactions |  
-| GET | /api/relationships/user/{id} | Get user relationships (graph branch) |  
-| GET | /api/relationships/transaction/{id} | Get transaction relationships |  
-| GET | /api/analytics/shortest-path/users/{from}/{to} | Shortest path between two users |  
-| GET | /api/analytics/transaction-clusters | Cluster transactions by shared users |  
-| GET | /api/export/json | Export entire graph as JSON |  
-| GET | /api/export/csv | Export entire graph as CSV |
-```
+End.
