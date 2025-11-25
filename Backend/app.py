@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, Response, request, jsonify,stream_with_context
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
@@ -239,59 +239,176 @@ def get_statistics():
 
 # ===== EXPORT ROUTES =====
 
-@app.route('/api/export/json', methods=['GET'])
-def export_graph_json():
-    try:
-        data = db.export_graph()
-        return jsonify(to_dict(data)), 200
-    except Exception as e:
-        return jsonify({"error": f"export failed: {str(e)}"}), 500
+# @app.route('/api/export/json', methods=['GET'])
+# def export_graph_json():
+#     try:
+#         data = db.export_graph()
+#         return jsonify(to_dict(data)), 200
+#     except Exception as e:
+#         return jsonify({"error": f"export failed: {str(e)}"}), 500
 
 
-@app.route('/api/export/csv', methods=['GET'])
-def export_graph_csv():
-    try:
-        data = db.export_graph()
+# @app.route('/api/export/csv', methods=['GET'])
+# def export_graph_csv():
+#     try:
+#         data = db.export_graph()
 
-        # Create CSV in memory
-        output = io.StringIO()
-        writer = csv.writer(output)
+#         # Create CSV in memory
+#         output = io.StringIO()
+#         writer = csv.writer(output)
 
-        # Nodes section
-        writer.writerow(["# Nodes"])
-        writer.writerow(["id", "type", "properties"])
-        for node in data.nodes:
-            props = json.dumps(node.properties)
-            writer.writerow([node.id, node.type, props])
-        writer.writerow([])
+#         # Nodes section
+#         writer.writerow(["# Nodes"])
+#         writer.writerow(["id", "type", "properties"])
+#         for node in data.nodes:
+#             props = json.dumps(node.properties)
+#             writer.writerow([node.id, node.type, props])
+#         writer.writerow([])
 
-        # Relationships section
-        writer.writerow(["# Relationships"])
-        writer.writerow(["source_id", "source_type", "relationship", "target_id", "target_type"])
-        for rel in data.relationships:
-            writer.writerow([
-                rel.sourceId,
-                rel.sourceType,
-                rel.relationship,
-                rel.targetId,
-                rel.targetType
-            ])
+#         # Relationships section
+#         writer.writerow(["# Relationships"])
+#         writer.writerow(["source_id", "source_type", "relationship", "target_id", "target_type"])
+#         for rel in data.relationships:
+#             writer.writerow([
+#                 rel.sourceId,
+#                 rel.sourceType,
+#                 rel.relationship,
+#                 rel.targetId,
+#                 rel.targetType
+#             ])
 
-        # Get CSV content
-        csv_content = output.getvalue()
-        output.close()
+#         # Get CSV content
+#         csv_content = output.getvalue()
+#         output.close()
 
-        # Return as downloadable file
-        from flask import Response
-        return Response(
-            csv_content,
-            mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=graph.csv"}
-        )
-    except Exception as e:
-        return jsonify({"error": f"export failed: {str(e)}"}), 500
+#         # Return as downloadable file
+#         from flask import Response
+#         return Response(
+#             csv_content,
+#             mimetype="text/csv",
+#             headers={"Content-Disposition": "attachment; filename=graph.csv"}
+#         )
+#     except Exception as e:
+#         return jsonify({"error": f"export failed: {str(e)}"}), 500
 
 
+# def row_to_csv(row):
+#     s = io.StringIO()
+#     csv.writer(s).writerow(row)
+#     return s.getvalue()
+
+# @app.route('/api/export/csv', methods=['GET'])
+# def export_graph_csv():
+#     data = db.export_graph()
+
+#     def generate():
+#         yield "# Nodes\n"
+#         yield "id,type,properties\n"
+
+#         for node in data.nodes:
+#             props = json.dumps(node.properties)
+#             yield row_to_csv([node.id, node.type, props])
+
+#         yield "\n# Relationships\n"
+#         yield "source_id,source_type,relationship,target_id,target_type\n"
+
+#         for rel in data.relationships:
+#             yield row_to_csv([
+#                 rel.sourceId,
+#                 rel.sourceType,
+#                 rel.relationship,
+#                 rel.targetId,
+#                 rel.targetType
+#             ])
+
+#     return Response(
+#         generate(),
+#         mimetype="text/csv",
+#         headers={"Content-Disposition": "attachment; filename=graph.csv"}
+#     )
+def row_to_csv(row):
+    s = io.StringIO()
+    csv.writer(s).writerow(row)
+    return s.getvalue()
+def safe(p):
+    out = {}
+    for k, v in p.items():
+        out[k] = v.isoformat() if hasattr(v, "isoformat") else v
+    return json.dumps(out, ensure_ascii=False)
+@app.route("/api/export/csv")
+def export_graph_csv_batched():
+    def generate():
+        BATCH_SIZE = 10000
+        
+        si = io.StringIO()
+        writer = csv.writer(si)
+
+        yield "# Nodes\n"
+        yield "id,type,properties\n"
+
+        with db.driver.session() as session:
+            max_node_id_result = session.run("MATCH (n) RETURN max(id(n)) as m").single()
+            max_node_id = max_node_id_result["m"] if max_node_id_result and max_node_id_result["m"] is not None else -1
+            
+            current_id = 0
+            while current_id <= max_node_id:
+                q_nodes = """
+                MATCH (n)
+                WHERE id(n) >= $start AND id(n) < $end
+                RETURN id(n) AS id, labels(n)[0] AS type, properties(n) AS props
+                """
+                result = session.run(q_nodes, start=current_id, end=current_id + BATCH_SIZE)
+                
+                chunk_exists = False
+                for rec in result:
+                    chunk_exists = True
+                    props_str = json.dumps(rec["props"], default=str, ensure_ascii=False)
+                    writer.writerow([rec["id"], rec["type"], props_str])
+                
+                if chunk_exists:
+                    yield si.getvalue()
+                    si.seek(0)
+                    si.truncate(0)
+                
+                current_id += BATCH_SIZE
+
+        yield "\n# Relationships\n"
+        yield "source_id,source_type,relationship,target_id,target_type\n"
+
+        with db.driver.session() as session:
+            max_rel_id_result = session.run("MATCH ()-[r]->() RETURN max(id(r)) as m").single()
+            max_rel_id = max_rel_id_result["m"] if max_rel_id_result and max_rel_id_result["m"] is not None else -1
+            
+            current_id = 0
+            while current_id <= max_rel_id:
+                q_rels = """
+                MATCH (a)-[r]->(b)
+                WHERE id(r) >= $start AND id(r) < $end
+                RETURN id(a) AS src, labels(a)[0] AS srcType,
+                       type(r) AS rel, id(b) AS tgt, labels(b)[0] AS tgtType
+                """
+                result = session.run(q_rels, start=current_id, end=current_id + BATCH_SIZE)
+                
+                chunk_exists = False
+                for rec in result:
+                    chunk_exists = True
+                    writer.writerow([
+                        rec["src"],
+                        rec["srcType"],
+                        rec["rel"],
+                        rec["tgt"],
+                        rec["tgtType"]
+                    ])
+                
+                if chunk_exists:
+                    yield si.getvalue()
+                    si.seek(0)
+                    si.truncate(0)
+
+                current_id += BATCH_SIZE
+
+    return Response(stream_with_context(generate()), mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=graph_optimized.csv"})
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=False)
 
