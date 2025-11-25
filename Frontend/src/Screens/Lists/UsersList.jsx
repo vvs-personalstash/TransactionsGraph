@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, memo, useCallback } from 'react'
 import axios from 'axios'
+import GraphVisualization from '../../components/GraphVisualization'
 
 const USERS_PER_PAGE = 5
 const DEBOUNCE_DELAY = 300 // ms
@@ -11,6 +12,7 @@ const UsersList = memo(function UsersList() {
   const [userTotal, setUserTotal] = useState(0)
   const [userPageCount, setUserPageCount] = useState(0)
   const [dataVersion, setDataVersion] = useState(0)
+  const [selectedUserId, setSelectedUserId] = useState(null)
 
   const userCache = useRef({})
   const debounceTimer = useRef(null)
@@ -112,17 +114,18 @@ const UsersList = memo(function UsersList() {
         onChange={handleSearchChange}
         className="w-full mb-4 bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
       />
-      <div className="overflow-x-auto">
+      <div className="overflow-hidden">
         <table className="w-full table-fixed">
           <colgroup>
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '25%' }} />
-            <col style={{ width: '35%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '22%' }} />
             <col style={{ width: '30%' }} />
+            <col style={{ width: '25%' }} />
+            <col style={{ width: '15%' }} />
           </colgroup>
           <thead className="bg-slate-900">
             <tr>
-              {['ID','Name','Email','Phone'].map(h => (
+              {['ID','Name','Email','Phone','Actions'].map(h => (
                 <th key={h} className="px-4 py-2 text-left text-sm font-medium text-slate-300">
                   {h}
                 </th>
@@ -133,20 +136,34 @@ const UsersList = memo(function UsersList() {
             {showSkeleton ? (
               // Show skeleton rows to maintain height (no animation)
               Array.from({ length: USERS_PER_PAGE }).map((_, i) => (
-                <tr key={`skeleton-${i}`} className="border-t border-slate-700" style={{ height: '40px' }}>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-12"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-32"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-40"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-28"></div></td>
+                <tr key={`skeleton-${i}`} className="border-t border-slate-700">
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-12"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-32"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-40"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-28"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-16"></div></td>
                 </tr>
               ))
             ) : (
               users.map(u => (
-                <tr key={u.id} className="border-t border-slate-700 hover:bg-slate-700/50" style={{ height: '40px' }}>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate">{u.id}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate">{u.name}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate" title={u.email}>{u.email}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate" title={u.phone}>{u.phone}</td>
+                <tr key={u.id} className="border-t border-slate-700 hover:bg-slate-700/50">
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block">{u.id}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block">{u.name}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block" title={u.email}>{u.email}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block" title={u.phone}>{u.phone}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}>
+                    <button
+                      onClick={() => setSelectedUserId(selectedUserId === u.id ? null : u.id)}
+                      className={`px-2 py-1 text-xs rounded ${
+                        selectedUserId === u.id
+                          ? 'bg-slate-600 hover:bg-slate-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                      title={selectedUserId === u.id ? "Hide Graph" : "Show Graph"}
+                    >
+                      {selectedUserId === u.id ? 'Hide' : 'Graph'}
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -185,6 +202,12 @@ const UsersList = memo(function UsersList() {
           </>
         )}
       </div>
+
+      {selectedUserId && (
+        <div className="mt-6">
+          <GraphVisualization entityId={selectedUserId} entityType="user" />
+        </div>
+      )}
     </section>
   )
 })

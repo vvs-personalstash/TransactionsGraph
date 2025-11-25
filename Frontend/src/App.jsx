@@ -4,7 +4,6 @@ const NAV_ITEMS = [
   { label: 'Home',                  to: '/' },
   { label: 'Add Data',              to: '/add-data' },
   { label: 'View Lists',            to: '/lists' },
-  { label: 'Graph View',            to: '/graph' },
   { label: 'Shortest Path',         to: '/analytics' },
   { label: 'Transaction Clusters',  to: '/transaction-clusters' },
   { label: 'Export JSON/CSV',       to: '/export' },

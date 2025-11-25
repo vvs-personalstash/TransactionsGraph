@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, memo, useCallback } from 'react'
 import axios from 'axios'
+import GraphVisualization from '../../components/GraphVisualization'
 
 const TXNS_PER_PAGE = 5
 const DEBOUNCE_DELAY = 300 // ms
@@ -19,6 +20,7 @@ const TransactionsList = memo(function TransactionsList() {
   const [txnTotal, setTxnTotal] = useState(0)
   const [txnPageCount, setTxnPageCount] = useState(0)
   const [dataVersion, setDataVersion] = useState(0)
+  const [selectedTxnId, setSelectedTxnId] = useState(null)
 
   const [minAmt, setMinAmt] = useState('')
   const [maxAmt, setMaxAmt] = useState('')
@@ -201,21 +203,22 @@ const TransactionsList = memo(function TransactionsList() {
         ))}
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-hidden">
         <table className="w-full table-fixed">
           <colgroup>
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '18%' }} />
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '25%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '16%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '23%' }} />
+            <col style={{ width: '12%' }} />
           </colgroup>
           <thead className="bg-slate-900">
             <tr>
-              {['ID','From','To','Amount','Currency','Timestamp','Device ID','Description']
+              {['ID','From','To','Amount','Currency','Timestamp','Device ID','Description','Actions']
                 .map(h => (
                   <th key={h} className="px-4 py-2 text-left text-sm font-medium text-slate-300">
                     {h}
@@ -228,30 +231,44 @@ const TransactionsList = memo(function TransactionsList() {
             {showSkeleton ? (
               // Show skeleton rows to maintain height (no animation)
               Array.from({ length: TXNS_PER_PAGE }).map((_, i) => (
-                <tr key={`skeleton-${i}`} className="border-t border-slate-700" style={{ height: '40px' }}>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-12"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-12"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-12"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-16"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-12"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-32"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-24"></div></td>
-                  <td className="px-4 py-2"><div className="h-5 bg-slate-700 rounded w-36"></div></td>
+                <tr key={`skeleton-${i}`} className="border-t border-slate-700">
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-12"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-12"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-12"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-16"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-12"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-32"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-24"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-36"></div></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><div className="h-5 bg-slate-700 rounded w-16"></div></td>
                 </tr>
               ))
             ) : (
               txns.map(t => (
-                <tr key={t.id} className="border-t border-slate-700 hover:bg-slate-700/50" style={{ height: '40px' }}>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate">{t.id}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate">{t.fromUserId}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate">{t.toUserId}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate">{t.amount}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate">{t.currency}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate" title={new Date(t.timestamp).toLocaleString()}>
+                <tr key={t.id} className="border-t border-slate-700 hover:bg-slate-700/50">
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block">{t.id}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block">{t.fromUserId}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block">{t.toUserId}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block">{t.amount}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block">{t.currency}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block" title={new Date(t.timestamp).toLocaleString()}>
                     {new Date(t.timestamp).toLocaleString()}
+                  </span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block" title={t.deviceId || '—'}>{t.deviceId || '—'}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}><span className="text-sm text-slate-200 truncate block" title={t.description}>{t.description}</span></td>
+                  <td className="px-4 py-2" style={{ height: '48px' }}>
+                    <button
+                      onClick={() => setSelectedTxnId(selectedTxnId === t.id ? null : t.id)}
+                      className={`px-2 py-1 text-xs rounded ${
+                        selectedTxnId === t.id
+                          ? 'bg-slate-600 hover:bg-slate-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                      title={selectedTxnId === t.id ? "Hide Graph" : "Show Graph"}
+                    >
+                      {selectedTxnId === t.id ? 'Hide' : 'Graph'}
+                    </button>
                   </td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate" title={t.deviceId || '—'}>{t.deviceId || '—'}</td>
-                  <td className="px-4 py-2 text-sm text-slate-200 truncate" title={t.description}>{t.description}</td>
                 </tr>
               ))
             )}
@@ -291,6 +308,12 @@ const TransactionsList = memo(function TransactionsList() {
           </>
         )}
       </div>
+
+      {selectedTxnId && (
+        <div className="mt-6">
+          <GraphVisualization entityId={selectedTxnId} entityType="transaction" />
+        </div>
+      )}
     </section>
   )
 })
