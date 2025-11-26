@@ -1,62 +1,63 @@
-import { useState, useEffect } from 'react'
-import axios from 'axios'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "./api";
 
 export default function AddTransaction() {
-  const [users, setUsers]             = useState([])
-  const [fromId, setFromId]           = useState('')
-  const [toId, setToId]               = useState('')
-  const [amount, setAmount]           = useState('')
-  const [currency, setCurrency]       = useState('USD')
-  const [timestamp, setTimestamp]     = useState('')
-  const [description, setDescription] = useState('')
-  const [deviceId, setDeviceId]       = useState('')
-  const [error, setError]             = useState(null)
-  const [success, setSuccess]         = useState(false)
-  const navigate = useNavigate()
+  const [users, setUsers] = useState([]);
+  const [fromId, setFromId] = useState("");
+  const [toId, setToId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [timestamp, setTimestamp] = useState("");
+  const [description, setDescription] = useState("");
+  const [deviceId, setDeviceId] = useState("");
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get('/api/users')
-      .then(res => setUsers(res.data))
-      .catch(err => {
-        console.error('Failed to load users:', err)
-        setError('Error loading users.')
-      })
+    api
+      .get("/api/users")
+      .then((res) => setUsers(res.data))
+      .catch((err) => {
+        console.error("Failed to load users:", err);
+        setError("Error loading users.");
+      });
 
-    setTimestamp(new Date().toISOString().slice(0,16))
-  }, [])
+    setTimestamp(new Date().toISOString().slice(0, 16));
+  }, []);
 
-  const handleSubmit = async e => {
-    e.preventDefault()
-    setError(null)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
 
     try {
-      await axios.post('/api/transactions', {
-        fromUserId:   Number(fromId),
-        toUserId:     Number(toId),
-        amount:       Number(amount),
+      await api.post("/api/transactions", {
+        fromUserId: Number(fromId),
+        toUserId: Number(toId),
+        amount: Number(amount),
         currency,
         timestamp,
         description,
-        deviceId
-      })
+        deviceId,
+      });
 
-      setSuccess(true)
+      setSuccess(true);
       // reset form
-      setFromId('')
-      setToId('')
-      setAmount('')
-      setCurrency('USD')
-      setDescription('')
-      setDeviceId('')
-      setTimestamp(new Date().toISOString().slice(0,16))
+      setFromId("");
+      setToId("");
+      setAmount("");
+      setCurrency("USD");
+      setDescription("");
+      setDeviceId("");
+      setTimestamp(new Date().toISOString().slice(0, 16));
 
-      setTimeout(() => navigate('/lists'), 1000)
+      setTimeout(() => navigate("/lists"), 1000);
     } catch (err) {
-      console.error('Transaction creation error:', err)
-      setError(err.response?.data?.message || 'Failed to create transaction.')
+      console.error("Transaction creation error:", err);
+      setError(err.response?.data?.message || "Failed to create transaction.");
     }
-  }
+  };
 
   return (
     <div className="container mx-auto px-6 py-8">
@@ -81,12 +82,12 @@ export default function AddTransaction() {
             <label className="block text-gray-700 mb-1">From User</label>
             <select
               value={fromId}
-              onChange={e => setFromId(e.target.value)}
+              onChange={(e) => setFromId(e.target.value)}
               required
               className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
             >
               <option value="">Select a user</option>
-              {users.map(u => (
+              {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name} (#{u.id})
                 </option>
@@ -98,12 +99,12 @@ export default function AddTransaction() {
             <label className="block text-gray-700 mb-1">To User</label>
             <select
               value={toId}
-              onChange={e => setToId(e.target.value)}
+              onChange={(e) => setToId(e.target.value)}
               required
               className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
             >
               <option value="">Select a user</option>
-              {users.map(u => (
+              {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name} (#{u.id})
                 </option>
@@ -117,7 +118,7 @@ export default function AddTransaction() {
               type="number"
               step="0.01"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={(e) => setAmount(e.target.value)}
               required
               className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
             />
@@ -127,7 +128,7 @@ export default function AddTransaction() {
             <label className="block text-gray-700 mb-1">Currency</label>
             <input
               value={currency}
-              onChange={e => setCurrency(e.target.value)}
+              onChange={(e) => setCurrency(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
             />
           </div>
@@ -137,9 +138,9 @@ export default function AddTransaction() {
             <input
               type="datetime-local"
               value={timestamp}
-              onChange={e => setTimestamp(e.target.value)}
+              onChange={(e) => setTimestamp(e.target.value)}
               required
-              min={new Date().toISOString().slice(0,16)}
+              min={new Date().toISOString().slice(0, 16)}
               className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
             />
           </div>
@@ -148,7 +149,7 @@ export default function AddTransaction() {
             <label className="block text-gray-700 mb-1">Description</label>
             <input
               value={description}
-              onChange={e => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
             />
           </div>
@@ -157,7 +158,7 @@ export default function AddTransaction() {
             <label className="block text-gray-700 mb-1">Device ID</label>
             <input
               value={deviceId}
-              onChange={e => setDeviceId(e.target.value)}
+              onChange={(e) => setDeviceId(e.target.value)}
               placeholder="e.g., device-123"
               className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
             />
@@ -172,5 +173,5 @@ export default function AddTransaction() {
         </form>
       </div>
     </div>
-  )
+  );
 }

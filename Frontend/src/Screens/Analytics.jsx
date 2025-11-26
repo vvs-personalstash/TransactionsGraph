@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
-import cytoscape from 'cytoscape'
+import { useState, useEffect, useRef } from "react";
+import cytoscape from "cytoscape";
+import api from "./api";
 
 export default function Analytics() {
-  const [users, setUsers]     = useState([])
-  const [fromID, setFromID]   = useState('')
-  const [toID, setToID]       = useState('')
-  const [error, setError]     = useState(null)
-  const cyRef                 = useRef(null)
-  const [cy, setCy]           = useState(null)
+  const [users, setUsers] = useState([]);
+  const [fromID, setFromID] = useState("");
+  const [toID, setToID] = useState("");
+  const [error, setError] = useState(null);
+  const cyRef = useRef(null);
+  const [cy, setCy] = useState(null);
 
   // 1) initialize Cytoscape
   useEffect(() => {
@@ -18,122 +18,124 @@ export default function Analytics() {
         elements: [],
         style: [
           {
-            selector: 'node',
+            selector: "node",
             style: {
-              label: 'data(label)',
-              'background-color': '#6FB1FC',
-              shape: 'ellipse',
-              color: '#ffffff',
-              'font-size': '12px',
-              'text-valign': 'center',
-              'text-halign': 'center',
+              label: "data(label)",
+              "background-color": "#6FB1FC",
+              shape: "ellipse",
+              color: "#ffffff",
+              "font-size": "12px",
+              "text-valign": "center",
+              "text-halign": "center",
             },
           },
           {
-            selector: 'edge',
+            selector: "edge",
             style: {
-              label: 'data(label)',
-              'font-size': '10px',
-              'text-rotation': 'autorotate',
-              'text-margin-y': '-6px',
-              'text-background-color': '#1e293b',
-              'text-background-opacity': 0.9,
-              'text-background-padding': '3px',
-              color: '#e2e8f0',
-              'line-color': '#94a3b8',
+              label: "data(label)",
+              "font-size": "10px",
+              "text-rotation": "autorotate",
+              "text-margin-y": "-6px",
+              "text-background-color": "#1e293b",
+              "text-background-opacity": 0.9,
+              "text-background-padding": "3px",
+              color: "#e2e8f0",
+              "line-color": "#94a3b8",
               width: 2,
-              'target-arrow-shape': 'triangle',
-              'target-arrow-color': '#94a3b8',
+              "target-arrow-shape": "triangle",
+              "target-arrow-color": "#94a3b8",
             },
           },
           {
-            selector: '.highlight',
+            selector: ".highlight",
             style: {
-              'line-color': '#ef4444',
-              'target-arrow-color': '#ef4444',
+              "line-color": "#ef4444",
+              "target-arrow-color": "#ef4444",
               width: 4,
             },
           },
         ],
-        layout: { name: 'breadthfirst' },
-      })
-      setCy(instance)
+        layout: { name: "breadthfirst" },
+      });
+      setCy(instance);
     }
-  }, [cy])
+  }, [cy]);
 
   // 2) load user list for the selectors
   useEffect(() => {
-    axios
-      .get('/api/users')
-      .then(res => setUsers(res.data))
-      .catch(() => setError('Error loading user list.'))
-  }, [])
+    api
+      .get("/api/users")
+      .then((res) => setUsers(res.data))
+      .catch(() => setError("Error loading user list."));
+  }, []);
 
   // 3) form submit: fetch path‐with‐relations and draw graph
-  const handlePath = async e => {
-    e.preventDefault()
-    setError(null)
+  const handlePath = async (e) => {
+    e.preventDefault();
+    setError(null);
     if (!fromID || !toID) {
-      setError('Please select both users.')
-      return
+      setError("Please select both users.");
+      return;
     }
 
     try {
-      const { data } = await axios.get(
+      const { data } = await api.get(
         `/api/analytics/shortest-path/users/${fromID}/${toID}`
-      )
-      const segments = data.segments // expect [{ from, to, relationship }, ...]
+      );
+      const segments = data.segments; // expect [{ from, to, relationship }, ...]
 
       if (!segments?.length) {
-        setError('No path found between those users.')
-        cy.elements().remove()
-        return
+        setError("No path found between those users.");
+        cy.elements().remove();
+        return;
       }
 
       // build node elements (deduplicated)
-      const nodeMap = {}
+      const nodeMap = {};
       segments.forEach(({ from_node, to_node }) => {
-        ;[from_node, to_node].forEach(n => {
-          const key = `${n.type[0].toLowerCase()}${n.id}`
+        [from_node, to_node].forEach((n) => {
+          const key = `${n.type[0].toLowerCase()}${n.id}`;
           if (!nodeMap[key]) {
             nodeMap[key] = {
               data: {
                 id: key,
                 label:
-                  n.type === 'User'
+                  n.type === "User"
                     ? n.name
-                    : `Txn #${n.id}${n.deviceId ? ` (${n.deviceId})` : ''}`,
+                    : `Txn #${n.id}${n.deviceId ? ` (${n.deviceId})` : ""}`,
               },
-            }
+            };
           }
-        })
-      })
-      const nodeElems = Object.values(nodeMap)
+        });
+      });
+      const nodeElems = Object.values(nodeMap);
 
       // build edge elements using the real relationship name
-      const edgeElems = segments.map(({ from_node, to_node, relationship }, i) => {
-        const src = `${from_node.type[0].toLowerCase()}${from_node.id}`
-        const dst = `${to_node.type[0].toLowerCase()}${to_node.id}`
-        return {
-          data: {
-            id: `e_${src}_${dst}_${i}`,
-            source: src,
-            target: dst,
-            label: relationship.replace('_', ' '),
-          },
-          classes: 'highlight',
+      const edgeElems = segments.map(
+        ({ from_node, to_node, relationship }, i) => {
+          const src = `${from_node.type[0].toLowerCase()}${from_node.id}`;
+          const dst = `${to_node.type[0].toLowerCase()}${to_node.id}`;
+          return {
+            data: {
+              id: `e_${src}_${dst}_${i}`,
+              source: src,
+              target: dst,
+              label: relationship.replace("_", " "),
+            },
+            classes: "highlight",
+          };
         }
-      })
+      );
 
-      cy.elements().remove()
-      cy.add([...nodeElems, ...edgeElems])
-      cy.layout({ name: 'breadthfirst' }).run()
-      cy.fit()
+      cy.elements().remove();
+      cy.add([...nodeElems, ...edgeElems]);
+      cy.layout({ name: "breadthfirst" }).run();
+      cy.fit();
     } catch {
-      setError('Error computing path.')
-      cy.elements().remove()
+      setError("Error computing path.");
+      cy.elements().remove();
     }
-  }
+  };
 
   return (
     <div className="container mx-auto px-6 py-12 max-w-lg space-y-6">
@@ -153,12 +155,12 @@ export default function Analytics() {
             </label>
             <select
               value={fromID}
-              onChange={e => setFromID(e.target.value)}
+              onChange={(e) => setFromID(e.target.value)}
               required
               className="w-full bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             >
               <option value="">Select user…</option>
-              {users.map(u => (
+              {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name} (#{u.id})
                 </option>
@@ -171,12 +173,12 @@ export default function Analytics() {
             </label>
             <select
               value={toID}
-              onChange={e => setToID(e.target.value)}
+              onChange={(e) => setToID(e.target.value)}
               required
               className="w-full bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             >
               <option value="">Select user…</option>
-              {users.map(u => (
+              {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name} (#{u.id})
                 </option>
@@ -197,5 +199,5 @@ export default function Analytics() {
         className="bg-slate-800 border border-slate-700 rounded-lg h-[400px]"
       />
     </div>
-  )
+  );
 }
