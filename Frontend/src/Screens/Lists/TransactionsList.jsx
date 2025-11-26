@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, memo, useCallback } from "react";
-import axios from "axios";
 import GraphVisualization from "../../components/GraphVisualization";
+import api from "../api";
 
 const TXNS_PER_PAGE = 5;
 const DEBOUNCE_DELAY = 300; // ms
@@ -82,7 +82,7 @@ const TransactionsList = memo(function TransactionsList() {
 
   // Fetch currencies on mount
   useEffect(() => {
-    axios
+    api
       .get("/api/transactions/currencies")
       .then((res) => setCurrencies(res.data))
       .catch((err) => console.error("Failed to fetch currencies:", err));
@@ -113,7 +113,7 @@ const TransactionsList = memo(function TransactionsList() {
     if (debouncedDescQuery) params.description = debouncedDescQuery;
     if (debouncedDeviceQuery) params.deviceId = debouncedDeviceQuery;
 
-    axios
+    api
       .get("/api/transactions", { params })
       .then((res) => {
         txnCache.current[txnCacheKey] = {

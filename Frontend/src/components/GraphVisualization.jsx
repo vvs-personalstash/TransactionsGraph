@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
-import cytoscape from 'cytoscape'
+import { useEffect, useRef, useState } from "react";
+import cytoscape from "cytoscape";
+import api from "../Screens/api";
 
 export default function GraphVisualization({ entityId, entityType }) {
-  const cyRef = useRef(null)
-  const [cy, setCy] = useState(null)
+  const cyRef = useRef(null);
+  const [cy, setCy] = useState(null);
 
   // Initialize Cytoscape instance
   useEffect(() => {
@@ -83,35 +84,38 @@ export default function GraphVisualization({ entityId, entityType }) {
           },
         ],
         layout: { name: "cose", animate: true, animationDuration: 500 },
-      })
-      setCy(instance)
+      });
+      setCy(instance);
     }
-  }, [cy])
+  }, [cy]);
 
   // Load graph data when entityId or entityType changes
   useEffect(() => {
-    if (!cy || !entityId || !entityType) return
+    if (!cy || !entityId || !entityType) return;
 
     const loadGraph = async () => {
       try {
-        const endpoint = entityType === 'user' 
-          ? `/api/relationships/user/${entityId}`
-          : `/api/relationships/transaction/${entityId}`
-        
-        const response = await fetch(endpoint)
-        const data = await response.json()
+        const endpoint =
+          entityType === "user"
+            ? `/api/relationships/user/${entityId}`
+            : `/api/relationships/transaction/${entityId}`;
 
-        const elements = []
+        const response = await api.get(endpoint);
+        const data = await response.data;
 
-        if (entityType === 'user') {
-          const { user, connections } = data
-          elements.push({ data: { id: `u${user.id}`, label: user.name, type: "user" } })
+        const elements = [];
+
+        if (entityType === "user") {
+          const { user, connections } = data;
+          elements.push({
+            data: { id: `u${user.id}`, label: user.name, type: "user" },
+          });
 
           connections.users.forEach((rc) => {
-            const u = rc.node
+            const u = rc.node;
             elements.push({
               data: { id: `u${u.id}`, label: u.name, type: "user" },
-            })
+            });
             elements.push({
               data: {
                 id: `e_user_${user.id}_${u.id}`,
@@ -120,23 +124,23 @@ export default function GraphVisualization({ entityId, entityType }) {
                 relationship: rc.relationship,
                 label: rc.relationship,
               },
-            })
-          })
+            });
+          });
 
           connections.transactions.forEach((rc) => {
-            const t = rc.node
+            const t = rc.node;
             const txnLabel = t.deviceId
               ? `Txn #${t.id} (${t.deviceId})`
-              : `Txn #${t.id}`
+              : `Txn #${t.id}`;
 
             elements.push({
               data: { id: `t${t.id}`, label: txnLabel, type: "transaction" },
-            })
+            });
 
             const edgeData =
               rc.relationship === "SENT"
                 ? { source: `u${user.id}`, target: `t${t.id}` }
-                : { source: `t${t.id}`, target: `u${user.id}` }
+                : { source: `t${t.id}`, target: `u${user.id}` };
 
             elements.push({
               data: {
@@ -145,14 +149,14 @@ export default function GraphVisualization({ entityId, entityType }) {
                 label: rc.relationship,
                 ...edgeData,
               },
-            })
-          })
+            });
+          });
         } else {
           // transaction type
-          const { transaction, connections } = data
+          const { transaction, connections } = data;
           const txnLabel = transaction.deviceId
             ? `Txn #${transaction.id} (${transaction.deviceId})`
-            : `Txn #${transaction.id}`
+            : `Txn #${transaction.id}`;
 
           elements.push({
             data: {
@@ -160,18 +164,18 @@ export default function GraphVisualization({ entityId, entityType }) {
               label: txnLabel,
               type: "transaction",
             },
-          })
+          });
 
           connections.users.forEach((rc) => {
-            const u = rc.node
+            const u = rc.node;
             elements.push({
               data: { id: `u${u.id}`, label: u.name, type: "user" },
-            })
+            });
 
             const edgeData =
               rc.relationship === "SENT"
                 ? { source: `u${u.id}`, target: `t${transaction.id}` }
-                : { source: `t${transaction.id}`, target: `u${u.id}` }
+                : { source: `t${transaction.id}`, target: `u${u.id}` };
 
             elements.push({
               data: {
@@ -180,21 +184,21 @@ export default function GraphVisualization({ entityId, entityType }) {
                 label: rc.relationship,
                 ...edgeData,
               },
-            })
-          })
+            });
+          });
         }
 
-        cy.elements().remove()
-        cy.add(elements)
-        cy.layout({ name: "cose", animate: true }).run()
-        cy.fit()
+        cy.elements().remove();
+        cy.add(elements);
+        cy.layout({ name: "cose", animate: true }).run();
+        cy.fit();
       } catch (err) {
-        console.error(`Failed to load ${entityType} graph:`, err)
+        console.error(`Failed to load ${entityType} graph:`, err);
       }
-    }
+    };
 
-    loadGraph()
-  }, [cy, entityId, entityType])
+    loadGraph();
+  }, [cy, entityId, entityType]);
 
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
@@ -218,6 +222,5 @@ export default function GraphVisualization({ entityId, entityType }) {
         className="w-full h-[400px] bg-slate-900 border border-slate-600 rounded"
       />
     </div>
-  )
+  );
 }
-

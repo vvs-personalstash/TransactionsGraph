@@ -13,9 +13,13 @@ RUN npm run build
 # ─── Production stage ─────────────────────────────────────────────────────────
 FROM nginx:stable-alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Install envsubst
+RUN apk add --no-cache gettext
+
+# Copy template
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Substitute env vars → generate final Nginx config
+CMD sh -c "envsubst '\$API_BASE_URL' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"

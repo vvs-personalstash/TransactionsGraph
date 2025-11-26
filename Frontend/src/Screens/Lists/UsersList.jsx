@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, memo, useCallback } from "react";
-import axios from "axios";
 import GraphVisualization from "../../components/GraphVisualization";
+import api from "../api";
 
 const USERS_PER_PAGE = 5;
 const DEBOUNCE_DELAY = 300; // ms
@@ -54,7 +54,7 @@ const UsersList = memo(function UsersList() {
       search: debouncedQuery,
     };
 
-    axios
+    api
       .get("/api/users", { params })
       .then((res) => {
         userCache.current[userCacheKey] = {

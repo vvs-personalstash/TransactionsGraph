@@ -8,10 +8,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app.py .
-COPY database.py .
-COPY models.py .
-COPY wait-for-neo4j.py .
+COPY . .
 
 # Expose port
 EXPOSE 8080
