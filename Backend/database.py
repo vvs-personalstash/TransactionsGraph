@@ -590,55 +590,48 @@ class Neo4jDriver:
 
         if not segments:
             raise Exception("no path found")
-
         return segments
 
     def cluster_transactions(self) -> List[TransactionCluster]:
         with self.driver.session() as session:
-            # Get all transaction IDs
-            tx_ids = session.execute_read(self._get_all_transaction_ids)
+            return session.execute_read(self._cluster_transactions_tx)
 
-            # Get transaction pairs (edges)
-            pairs = session.execute_read(self._get_transaction_pairs)
+    @staticmethod
+    def _cluster_transactions_tx(tx):
+        # Create an in-memory graph
+        tx.run("""
+            CALL gds.graph.drop('txGraph', false) YIELD graphName
+        """)
+        tx.run("""
+            CALL gds.graph.project(
+                'txGraph',
+                'Transaction',
+                {
+                ALL: {
+                    type: '*',
+                    orientation: 'UNDIRECTED'
+                }
+                }
+            )
+        """)
 
-            # Build adjacency list
-            adj = {tx_id: [] for tx_id in tx_ids}
-            for t1, t2 in pairs:
-                adj[t1].append(t2)
-                adj[t2].append(t1)
+        # Run GDS WCC
+        result = tx.run("""
+            CALL gds.wcc.stream('txGraph')
+            YIELD nodeId, componentId
+            RETURN gds.util.asNode(nodeId).id AS transactionId,
+                componentId AS clusterId
+            ORDER BY transactionId
+        """)
 
-            # BFS to find connected components
-            visited = set()
-            clusters = []
+        clusters = []
+        for record in result:
+            clusters.append(TransactionCluster(
+                transactionId=record["transactionId"],
+                clusterId=record["clusterId"]
+            ))
+        return clusters
 
-            for start in tx_ids:
-                if start in visited:
-                    continue
-
-                # BFS
-                queue = [start]
-                visited.add(start)
-                component = [start]
-
-                while queue:
-                    curr = queue.pop(0)
-                    for neighbor in adj[curr]:
-                        if neighbor not in visited:
-                            visited.add(neighbor)
-                            queue.append(neighbor)
-                            component.append(neighbor)
-
-                # Cluster ID is the minimum transaction ID in the component
-                cluster_id = min(component)
-
-                # Add all transactions in this component
-                for tx_id in component:
-                    clusters.append(TransactionCluster(
-                        transactionId=tx_id,
-                        clusterId=cluster_id
-                    ))
-
-            return clusters
 
     @staticmethod
     def _get_all_transaction_ids(tx) -> List[int]:

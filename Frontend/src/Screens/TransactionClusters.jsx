@@ -6,11 +6,9 @@ export default function TransactionClusters() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // advanced filter state
   const [filterTxId, setFilterTxId] = useState("");
   const [filterClusterId, setFilterClusterId] = useState("");
 
-  // pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -18,7 +16,9 @@ export default function TransactionClusters() {
     api
       .get("/api/analytics/transaction-clusters")
       .then((res) => {
-        setClusters(res.data.clusters);
+        const arr = Array.isArray(res.data?.clusters) ? res.data.clusters : [];
+
+        setClusters(arr);
         setLoading(false);
       })
       .catch(() => {
@@ -27,22 +27,18 @@ export default function TransactionClusters() {
       });
   }, []);
 
-  // Apply filters
   const filtered = useMemo(() => {
     return clusters.filter((c) => {
       let ok = true;
-      if (filterTxId) {
-        ok = ok && String(c.transactionId).includes(filterTxId);
-      }
-      if (filterClusterId) {
+      if (filterTxId) ok = ok && String(c.transactionId).includes(filterTxId);
+      if (filterClusterId)
         ok = ok && String(c.clusterId).includes(filterClusterId);
-      }
       return ok;
     });
   }, [clusters, filterTxId, filterClusterId]);
 
-  // Pagination calculations
-  const pageCount = Math.ceil(filtered.length / pageSize) || 1;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+
   const pagedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
@@ -50,6 +46,20 @@ export default function TransactionClusters() {
 
   const goToPage = (n) => {
     setCurrentPage(Math.max(1, Math.min(pageCount, n)));
+  };
+
+  // windowed pagination — prevents 5000 buttons
+  const getPageWindow = () => {
+    const windowSize = 7;
+    let start = Math.max(1, currentPage - 3);
+    let end = Math.min(pageCount, start + windowSize - 1);
+    if (end - start < windowSize - 1) {
+      start = Math.max(1, end - windowSize + 1);
+    }
+
+    let arr = [];
+    for (let i = start; i <= end; i++) arr.push(i);
+    return arr;
   };
 
   return (
@@ -68,6 +78,7 @@ export default function TransactionClusters() {
         {loading && (
           <div className="p-6 text-center text-slate-400">Loading…</div>
         )}
+
         {error && (
           <div className="p-6 bg-red-900/20 border border-red-800 text-red-400 text-center">
             {error}
@@ -85,7 +96,7 @@ export default function TransactionClusters() {
                   setFilterTxId(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="bg-slate-900 border border-slate-600 text-slate-200 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="bg-slate-900 border border-slate-600 text-slate-200 px-3 py-2 rounded-lg text-sm"
               />
               <input
                 type="text"
@@ -95,9 +106,10 @@ export default function TransactionClusters() {
                   setFilterClusterId(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="bg-slate-900 border border-slate-600 text-slate-200 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="bg-slate-900 border border-slate-600 text-slate-200 px-3 py-2 rounded-lg text-sm"
               />
             </div>
+
             <div className="flex items-center gap-2">
               <label className="text-sm text-slate-400">Page size:</label>
               <select
@@ -132,9 +144,9 @@ export default function TransactionClusters() {
                 </tr>
               </thead>
               <tbody>
-                {pagedData.map((c) => (
+                {pagedData.map((c, idx) => (
                   <tr
-                    key={c.transactionId}
+                    key={`${c.transactionId}-${idx}`}
                     className="border-t border-slate-700 hover:bg-slate-700/50"
                   >
                     <td className="p-3 text-sm text-slate-200">
@@ -145,6 +157,7 @@ export default function TransactionClusters() {
                     </td>
                   </tr>
                 ))}
+
                 {!pagedData.length && (
                   <tr>
                     <td colSpan={2} className="p-6 text-center text-slate-500">
@@ -162,30 +175,29 @@ export default function TransactionClusters() {
             <button
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="px-3 py-1 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 disabled:opacity-50"
+              className="px-3 py-1 bg-slate-700 text-slate-300 rounded disabled:opacity-50 hover:bg-slate-600"
             >
               Prev
             </button>
-            {[...Array(pageCount)].map((_, i) => {
-              const page = i + 1;
-              return (
-                <button
-                  key={page}
-                  onClick={() => goToPage(page)}
-                  className={`px-3 py-1 rounded ${
-                    page === currentPage
-                      ? "bg-emerald-500 text-white"
-                      : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                  }`}
-                >
-                  {page}
-                </button>
-              );
-            })}
+
+            {getPageWindow().map((page) => (
+              <button
+                key={page}
+                onClick={() => goToPage(page)}
+                className={`px-3 py-1 rounded ${
+                  page === currentPage
+                    ? "bg-emerald-500 text-white"
+                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === pageCount}
-              className="px-3 py-1 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 disabled:opacity-50"
+              className="px-3 py-1 bg-slate-700 text-slate-300 rounded disabled:opacity-50 hover:bg-slate-600"
             >
               Next
             </button>

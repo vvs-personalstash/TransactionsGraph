@@ -4,6 +4,7 @@ services:
     container_name: neo4j
     environment:
       NEO4J_AUTH: "${NEO4J_USER}/${NEO4J_PASS}"
+      NEO4J_PLUGINS: '["graph-data-science"]'
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -28,12 +29,12 @@ services:
     build:
       context: ./Frontend
       dockerfile: Dockerfile
-    container_name: frontend
     ports:
-      - "3000:80"
+      - "3000:3000"
     depends_on:
       - backend
     restart: on-failure
+
   
   ingestor:
     build:
