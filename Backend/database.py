@@ -592,46 +592,26 @@ class Neo4jDriver:
             raise Exception("no path found")
         return segments
 
-    def cluster_transactions(self) -> List[TransactionCluster]:
-        with self.driver.session() as session:
-            return session.execute_read(self._cluster_transactions_tx)
-
+    def cluster_transactions(self) -> List[TransactionCluster]: 
+        with self.driver.session() as session: 
+            return session.execute_read(self._cluster_transactions_tx) 
+        
     @staticmethod
-    def _cluster_transactions_tx(tx):
-        # Create an in-memory graph
-        tx.run("""
-            CALL gds.graph.drop('txGraph', false) YIELD graphName
-        """)
-        tx.run("""
-            CALL gds.graph.project(
-                'txGraph',
-                'Transaction',
-                {
-                ALL: {
-                    type: '*',
-                    orientation: 'UNDIRECTED'
-                }
-                }
-            )
-        """)
-
-        # Run GDS WCC
+    def _cluster_transactions_tx(tx): # Create an in-memory graph 
+        tx.run(""" CALL gds.graph.drop('txGraph', false) YIELD graphName """) 
+        tx.run(""" CALL gds.graph.project( 'txGraph', 'Transaction', { ALL: { type: '*', orientation: 'UNDIRECTED' } } ) """) 
+        # Run GDS WCC 
         result = tx.run("""
-            CALL gds.wcc.stream('txGraph')
-            YIELD nodeId, componentId
-            RETURN gds.util.asNode(nodeId).id AS transactionId,
-                componentId AS clusterId
-            ORDER BY transactionId
-        """)
-
-        clusters = []
-        for record in result:
-            clusters.append(TransactionCluster(
-                transactionId=record["transactionId"],
-                clusterId=record["clusterId"]
-            ))
+    CALL gds.wcc.stream('txGraph')
+    YIELD nodeId, componentId
+    WITH gds.util.asNode(nodeId) AS tx, componentId
+    RETURN id(tx) AS transactionId, componentId AS clusterId
+    ORDER BY transactionId
+""")
+        clusters = [] 
+        for record in result: 
+            clusters.append(TransactionCluster( transactionId=record["transactionId"], clusterId=record["clusterId"] )) 
         return clusters
-
 
     @staticmethod
     def _get_all_transaction_ids(tx) -> List[int]:
